@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimización de Transbordo</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f1f1f1; /* Gris claro */
+            color: #333; /* Texto oscuro para legibilidad */
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            text-align: center;
+            padding: 20px;
+            background-color: #7c4dff; /* Morado suave */
+        }
+        h1 {
+            color: #ffeb3b; /* Amarillo suave */
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            padding: 20px;
+            margin: 0; /* Eliminar el margen extra */
+        }
+        .form-container, .results-container {
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 0; /* Eliminar el margen inferior */
+            background-color: #b39ddb; /* Morado claro */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        input[type="number"], button, .result-box {
+            width: 95%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 2px solid #7c4dff; /* Borde morado */
+            border-radius: 5px;
+            color: #333; /* Texto en negro */
+            font-size: 16px;
+            background-color: white; /* Casillas de entrada blancas */
+        }
+        input[type="number"]:focus, .result-box:focus {
+            outline: none;
+            border-color: #4dd0e1; /* Azul claro cuando tiene foco */
+        }
+        button {
+            background-color: #263238; /* Tonos oscuros */
+            color: white;
+            border: none;
+        }
+        button:hover {
+            background-color: #212e35; /* Tonos oscuros más intensos */
+        }
+        label {
+            font-size: 16px;
+            display: block;
+            color: #333; /* Color negro para las etiquetas */
+        }
+        .results-container ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .results-container ul li {
+            background-color: #f9fdfd; /* Azul claro */
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .clear-btn {
+            background-color: #ec6d46; /* Naranja suave */
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .clear-btn:hover {
+            background-color: #ff7043; /* Naranja más oscuro */
+        }
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Optimización de Transbordo</h1>
+    </header>
+
+    <div class="container">
+        <div class="form-container">
+            <form id="transshipment-form">
+                <label for="num_supply_nodes">Número de nodos de suministro:</label>
+                <input type="number" name="num_supply_nodes" id="num_supply_nodes" required><br>
+
+                <label for="num_intermediate_nodes">Número de nodos intermedios:</label>
+                <input type="number" name="num_intermediate_nodes" id="num_intermediate_nodes" required><br>
+
+                <label for="num_demand_nodes">Número de nodos de demanda:</label>
+                <input type="number" name="num_demand_nodes" id="num_demand_nodes" required><br>
+
+                <div id="inputs"></div>
+                <button type="submit">Resolver</button>
+                <button type="button" class="clear-btn" onclick="clearForm()">Limpiar</button>
+            </form>
+        </div>
+
+        <div class="results-container" id="results" style="display: none;">
+            <h2>Resultados</h2>
+            <p id="status" style="color: #361750;"></p> <!-- Amarillo suave para estado -->
+            <ul id="flows"></ul>
+            <p id="total-cost" style="color: #361750;"></p> <!-- Amarillo suave para costo total -->
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            // Cuando el usuario cambia los valores de los nodos
+            $('input[name="num_supply_nodes"], input[name="num_intermediate_nodes"], input[name="num_demand_nodes"]').on('change', function() {
+                var numSupply = parseInt($('input[name="num_supply_nodes"]').val());
+                var numIntermediate = parseInt($('input[name="num_intermediate_nodes"]').val());
+                var numDemand = parseInt($('input[name="num_demand_nodes"]').val());
+
+                var inputHTML = '';
+
+                // Campos de suministro
+                for (var i = 1; i <= numSupply; i++) {
+                    inputHTML += '<label>Suministro nodo ' + i + ':</label><input type="number" name="supply_' + i + '" required><br>';
+                }
+
+                // Campos de demanda
+                for (var j = 1; j <= numDemand; j++) {
+                    inputHTML += '<label>Demanda nodo ' + j + ':</label><input type="number" name="demand_' + j + '" required><br>';
+                }
+
+                // Campos de costos
+                for (var i = 1; i <= numSupply; i++) {
+                    for (var j = numSupply + 1; j <= numSupply + numIntermediate; j++) {
+                        inputHTML += '<label>Costos suministro ' + i + ' -> intermedio ' + j + ':</label><input type="number" name="cost_' + i + '_' + j + '" required><br>';
+                    }
+                }
+
+                for (var i = numSupply + 1; i <= numSupply + numIntermediate; i++) {
+                    for (var j = numSupply + numIntermediate + 1; j <= numSupply + numIntermediate + numDemand; j++) {
+                        inputHTML += '<label>Costos intermedio ' + i + ' -> demanda ' + j + ':</label><input type="number" name="cost_' + i + '_' + j + '" required><br>';
+                    }
+                }
+
+                $('#inputs').html(inputHTML);
+            });
+
+            // Enviar formulario para resolución
+            $('#transshipment-form').on('submit', function(e) {
+                e.preventDefault();
+                $.ajax({
+                    url: '/solve',
+                    method: 'POST',
+                    data: $(this).serialize(),
+                    success: function(response) {
+                        $('#status').text("Estado de la solución: " + response.status);
+                        $('#flows').empty();
+                        for (const [description, value] of Object.entries(response.flows)) {
+                            $('#flows').append(`<li class="result-box">${description}: ${value} unidades</li>`);
+                        }
+                        $('#total-cost').text("Costo Total: " + response.total_cost);
+                        $('#results').show();
+                    },
+                    error: function() {
+                        alert("Hubo un error al procesar la solicitud.");
+                    }
+                });
+            });
+        });
+
+        // Limpiar formulario
+        function clearForm() {
+            $('#transshipment-form')[0].reset();
+            $('#inputs').empty();
+            $('#results').hide();
+        }
+    </script>
+</body>
+</html>
+
